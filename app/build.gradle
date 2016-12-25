@@ -1,5 +1,6 @@
 apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
+apply plugin: 'realm-android'
 
 android {
     compileSdkVersion 25
@@ -23,13 +24,47 @@ android {
     }
 }
 
+ext {
+    appcompatVersion = '25.1.0'
+    dagger2Version = '2.8'
+    butterknifeVersion = '8.4.0'
+    retrofitVersion = '2.1.0'
+    gsonVersion = '2.8.0'
+    rxjavaVersion = '2.0.3'
+    rxandroidVersion = '2.0.1'
+    okhttpVersion = '3.5.0'
+}
+
 dependencies {
     compile fileTree(dir: 'libs', include: ['*.jar'])
     androidTestCompile('com.android.support.test.espresso:espresso-core:2.2.2', {
         exclude group: 'com.android.support', module: 'support-annotations'
     })
-    compile 'com.android.support:appcompat-v7:25.1.0'
+    compile "com.android.support:appcompat-v7:${appcompatVersion}"
+    compile "com.android.support:recyclerview-v7:${appcompatVersion}"
+
     compile 'com.android.support.constraint:constraint-layout:1.0.0-beta4'
+
+    compile "com.google.dagger:dagger:${dagger2Version}"
+    kapt "com.google.dagger:dagger-compiler:${dagger2Version}"
+    provided 'org.glassfish:javax.annotation:10.0-b28'
+
+    compile "com.jakewharton:butterknife:${butterknifeVersion}"
+    kapt "com.jakewharton:butterknife-compiler:${butterknifeVersion}"
+
+    compile "com.google.code.gson:gson:${gsonVersion}"
+    compile "com.squareup.retrofit2:retrofit:${retrofitVersion}"
+    compile "com.squareup.retrofit2:converter-gson:${retrofitVersion}"
+    compile "io.reactivex.rxjava2:rxjava:${rxjavaVersion}"
+    compile "io.reactivex.rxjava2:rxandroid:${rxandroidVersion}"
+    compile "com.jakewharton.retrofit:retrofit2-rxjava2-adapter:1.0.0"
+    compile "com.squareup.okhttp3:okhttp:${okhttpVersion}"
+    compile "com.squareup.okhttp3:logging-interceptor:${okhttpVersion}"
+
     testCompile 'junit:junit:4.12'
-    compile "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+    compile "org.jetbrains.kotlin:kotlin-stdlib:${kotlin_version}"
+}
+
+kapt {
+    generateStubs = true
 }
