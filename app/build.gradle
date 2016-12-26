@@ -13,10 +13,44 @@ android {
         versionName "1.0"
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
     }
+
+    signingConfigs {
+        debug {
+            try {
+                storeFile file("youtubeuploader.keystore")
+                storePassword KEYSTORE_PASSWORD
+                keyAlias STAGING_KEY_ALIAS
+                keyPassword STAGING_KEY_PASSWORD
+            }
+            catch (ex) {
+                throw new InvalidUserDataException("You should define KEYSTORE_PASSWORD, STAGING_KEY_ALIAS and STAGING_KEY_PASSWORD in gradle.properties.")
+            }
+        }
+        release {
+            try {
+                storeFile file("youtubeuploader.keystore")
+                storePassword KEYSTORE_PASSWORD
+                keyAlias PRODUCTION_KEY_ALIAS
+                keyPassword PRODUCTION_KEY_PASSWORD
+            }
+            catch (ex) {
+                throw new InvalidUserDataException("You should define KEYSTORE_PASSWORD, PRODUCTION_KEY_ALIAS and PRODUCTION_KEY_PASSWORD in gradle.properties.")
+            }
+        }
+    }
+
     buildTypes {
+        debug {
+            applicationIdSuffix '.staging'
+            versionNameSuffix '-STAGING'
+
+            signingConfig signingConfigs.debug
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+
+            signingConfig signingConfigs.release
         }
     }
     sourceSets {
