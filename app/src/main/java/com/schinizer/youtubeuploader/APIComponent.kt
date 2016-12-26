@@ -1,4 +1,4 @@
-package com.tinkerbox.youtubeuploader
+package com.schinizer.youtubeuploader
 
 import dagger.Component
 import javax.inject.Singleton

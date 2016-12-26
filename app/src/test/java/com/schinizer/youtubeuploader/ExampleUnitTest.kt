@@ -1,4 +1,4 @@
-package com.tinkerbox.youtubeuploader
+package com.schinizer.youtubeuploader
 
 import org.junit.Assert.assertEquals
 import org.junit.Test

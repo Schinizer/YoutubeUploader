@@ -1,7 +1,7 @@
-package com.tinkerbox.youtubeuploader
+package com.schinizer.youtubeuploader
 
 import com.jakewharton.retrofit2.adapter.rxjava2.Result
-import com.tinkerbox.youtubeuploader.model.VideoResource
+import com.schinizer.youtubeuploader.model.VideoResource
 import io.reactivex.Observable
 import retrofit2.http.*
 

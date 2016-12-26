@@ -1,4 +1,4 @@
-package com.tinkerbox.youtubeuploader.model
+package com.schinizer.youtubeuploader.model
 
 import com.google.gson.annotations.Expose
 import com.google.gson.annotations.SerializedName

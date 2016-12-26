@@ -1,4 +1,4 @@
-package com.tinkerbox.youtubeuploader
+package com.schinizer.youtubeuploader
 
 import android.content.Context
 import dagger.Module

@@ -1,4 +1,4 @@
-package com.tinkerbox.youtubeuploader
+package com.schinizer.youtubeuploader
 
 import com.google.gson.Gson
 import com.jakewharton.retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory
