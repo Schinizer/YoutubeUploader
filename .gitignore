@@ -47,6 +47,9 @@ captures/
 # External native build folder generated in Android Studio 2.2 and later
 .externalNativeBuild
 
+# Google credentials
+app/google-services.json
+
 ### Android Patch ###
 gen-external-apklibs
 
