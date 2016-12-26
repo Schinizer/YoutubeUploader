@@ -6,36 +6,27 @@ android {
     compileSdkVersion 25
     buildToolsVersion "25.0.2"
     defaultConfig {
-        applicationId "com.tinkerbox.youtubeuploader"
+        applicationId "com.schinizer.youtubeuploader"
         minSdkVersion 19
         targetSdkVersion 25
         versionCode 1
         versionName "1.0"
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+        decodeBase64('app/google-services.json', GOOGLE_CREDENTIALS)
     }
 
     signingConfigs {
         debug {
-            try {
-                storeFile file("youtubeuploader.keystore")
-                storePassword KEYSTORE_PASSWORD
-                keyAlias STAGING_KEY_ALIAS
-                keyPassword STAGING_KEY_PASSWORD
-            }
-            catch (ex) {
-                throw new InvalidUserDataException("You should define KEYSTORE_PASSWORD, STAGING_KEY_ALIAS and STAGING_KEY_PASSWORD in gradle.properties.")
-            }
+            storeFile file("youtubeuploader.keystore")
+            storePassword KEYSTORE_PASSWORD
+            keyAlias STAGING_KEY_ALIAS
+            keyPassword STAGING_KEY_PASSWORD
         }
         release {
-            try {
-                storeFile file("youtubeuploader.keystore")
-                storePassword KEYSTORE_PASSWORD
-                keyAlias PRODUCTION_KEY_ALIAS
-                keyPassword PRODUCTION_KEY_PASSWORD
-            }
-            catch (ex) {
-                throw new InvalidUserDataException("You should define KEYSTORE_PASSWORD, PRODUCTION_KEY_ALIAS and PRODUCTION_KEY_PASSWORD in gradle.properties.")
-            }
+            storeFile file("youtubeuploader.keystore")
+            storePassword KEYSTORE_PASSWORD
+            keyAlias PRODUCTION_KEY_ALIAS
+            keyPassword PRODUCTION_KEY_PASSWORD
         }
     }
 
@@ -58,6 +49,12 @@ android {
     }
 }
 
+static def decodeBase64(String filename, String key)
+{
+    File file = new File(filename)
+    file.write(new String(key.decodeBase64()))
+}
+
 ext {
     appcompatVersion = '25.1.0'
     dagger2Version = '2.8'
@@ -70,7 +67,7 @@ ext {
 }
 
 dependencies {
-    compile fileTree(dir: 'libs', include: ['*.jar'])
+    compile fileTree(include: ['*.jar'], dir: 'libs')
     androidTestCompile('com.android.support.test.espresso:espresso-core:2.2.2', {
         exclude group: 'com.android.support', module: 'support-annotations'
     })
@@ -78,6 +75,8 @@ dependencies {
     compile "com.android.support:recyclerview-v7:${appcompatVersion}"
 
     compile 'com.android.support.constraint:constraint-layout:1.0.0-beta4'
+
+    compile 'com.google.android.gms:play-services-auth:10.0.1'
 
     compile "com.google.dagger:dagger:${dagger2Version}"
     kapt "com.google.dagger:dagger-compiler:${dagger2Version}"
@@ -102,3 +101,5 @@ dependencies {
 kapt {
     generateStubs = true
 }
+
+apply plugin: 'com.google.gms.google-services'

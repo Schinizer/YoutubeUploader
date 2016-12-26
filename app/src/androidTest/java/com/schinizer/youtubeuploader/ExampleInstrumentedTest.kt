@@ -19,6 +19,6 @@ class ExampleInstrumentedTest {
         // Context of the app under test.
         val appContext = InstrumentationRegistry.getTargetContext()
 
-        assertEquals("com.tinkerbox.youtubeuploader", appContext.packageName)
+        assertEquals("com.schinizer.youtubeuploader", appContext.packageName)
     }
 }
