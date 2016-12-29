@@ -14,10 +14,13 @@ interface YoutubeAPI
     @Headers("content-type: application/json; charset=utf-8")
     fun startSession(
             @Header("Authorization") auth_token: String,
-            @Header("X-Upload-Content-Length") videoContentLength: Int,
+            @Header("X-Upload-Content-Length") videoContentLength: Long,
             @Header("X-Upload-Content-Type") mimeType: String,
             @Body videoResource: VideoResource
     ) : Observable<Result<Void>>
+
+    @GET("youtube/v3/videoCategories?part=snippet")
+    fun videoCategories()
 
     @PUT
     fun uploadSession(

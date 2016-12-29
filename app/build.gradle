@@ -47,6 +47,10 @@ android {
     sourceSets {
         main.java.srcDirs += 'src/main/kotlin'
     }
+    packagingOptions {
+        exclude 'META-INF/rxjava.properties'
+    }
+
 }
 
 static def decodeBase64(String filename, String key)
@@ -93,6 +97,10 @@ dependencies {
     compile "com.jakewharton.retrofit:retrofit2-rxjava2-adapter:1.0.0"
     compile "com.squareup.okhttp3:okhttp:${okhttpVersion}"
     compile "com.squareup.okhttp3:logging-interceptor:${okhttpVersion}"
+    compile 'com.squareup.okio:okio:1.11.0'
+
+    compile 'com.github.pavlospt:rxfile:1.5'
+    compile "com.github.akarnokd:rxjava2-interop:0.8.1"
 
     testCompile 'junit:junit:4.12'
     compile "org.jetbrains.kotlin:kotlin-stdlib:${kotlin_version}"
