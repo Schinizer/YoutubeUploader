@@ -3,6 +3,7 @@ package com.schinizer.youtubeuploader
 import com.jakewharton.retrofit2.adapter.rxjava2.Result
 import com.schinizer.youtubeuploader.model.VideoResource
 import io.reactivex.Observable
+import okhttp3.RequestBody
 import retrofit2.http.*
 
 /**
@@ -23,8 +24,24 @@ interface YoutubeAPI
     fun videoCategories()
 
     @PUT
-    fun uploadSession(
+    fun uploadVideo(
             @Url sessionURL: String,
-            @Header("Authorization") auth_token: String
+            @Header("Authorization") auth_token: String,
+            @Body requestBody: RequestBody
+    ) : Observable<Result<Void>>
+
+    @PUT
+    fun resumeUpload(
+            @Url sessionURL: String,
+            @Header("Authorization") auth_token: String,
+            @Header("Content-Range") contentRange: String,
+            @Body requestBody: RequestBody
+    ) : Observable<Result<Void>>
+
+    @PUT
+    fun uploadStatus(
+            @Url sessionURL: String,
+            @Header("Authorization") auth_token: String,
+            @Header("Content-Range") contentRange: String
     ) : Observable<Result<Void>>
 }

@@ -26,7 +26,6 @@ import io.reactivex.observers.DisposableObserver
 import io.reactivex.schedulers.Schedulers
 import okhttp3.MediaType
 import okhttp3.OkHttpClient
-import okhttp3.Request
 import okhttp3.RequestBody
 import okio.Buffer
 import okio.BufferedSink
@@ -40,6 +39,8 @@ class MainActivity : AppCompatActivity() {
     val ACTION_GET_CONTENT = 1
     val ACTION_SIGN_IN = 2
     val ACTION_AUTHORIZATION = 3
+
+    val SEGMENT_SIZE = 8L * 1024L
 
     val disposable = CompositeDisposable()
     lateinit var googleApiClient: GoogleApiClient
@@ -176,16 +177,18 @@ class MainActivity : AppCompatActivity() {
                                 uploadVideoTask(file, res.response().headers().get("Location"))
                             }
                 }
-                .subscribe { totalBytes ->
-                    Log.d(TAG, "onNext: $totalBytes")
+                .subscribe { data ->
+                    when(data)
+                    {
+                        is Long -> Log.d(TAG, "onNext: $data")
+                    }
                 }
     }
 
-    fun uploadVideoTask(file: File, sessionURL: String) : Flowable<Long>
+    fun uploadVideoTask(file: File, sessionURL: String) : Flowable<Any>
     {
-        val SEGMENT_SIZE = 8L * 1024L
+        return Flowable.create<Any>({ flowableSource ->
 
-        return Flowable.create<Long>({ flowableSource ->
             val requestBody = object : RequestBody(){
 
                 override fun contentType(): MediaType = MediaType.parse("video/*")
@@ -211,27 +214,75 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
-            val request = Request.Builder()
-                    .url(sessionURL)
-                    .put(requestBody)
-                    .addHeader("Authorization", "Bearer $authToken")
-                    .build()
-
-
-            val response = okhttpClient.newCall(request)
-                    .apply {
-                        flowableSource.setCancellable { cancel() }
+            val disposable = youtubeAPI.uploadVideo(sessionURL, "Bearer $authToken", requestBody)
+                    .doOnNext { res ->
+                        flowableSource.onNext(res)
+                        flowableSource.onComplete()
                     }
-                    .execute()
+                    .subscribe()
 
-            if(response.isSuccessful)
-            {
-                flowableSource.onComplete()
-            }
+            flowableSource.setCancellable { disposable.dispose() }
 
         }, BackpressureStrategy.LATEST)
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
+    }
+
+    fun resumeUpload(file: File, sessionURL: String) : Flowable<Any>
+    {
+        return youtubeAPI.uploadStatus(sessionURL, "Bearer $authToken", "bytes */${file.length()}")
+                .toFlowable(BackpressureStrategy.LATEST)
+                .flatMap { res ->
+                    when(res.response().code())
+                    {
+                        308 -> {
+                            val rangeHeader = res.response().headers()["Range"] ?: "" // If there is no header, init as empty string
+                            val offset = rangeHeader.substringAfterLast("-", "-1").toLong() + 1L // Range is 0 based index
+                            return@flatMap resumeUploadTask(file, offset, sessionURL)
+                        }
+                        else -> return@flatMap Flowable.empty<Any>()
+                    }
+                }
+    }
+
+    fun resumeUploadTask(file: File, offset: Long, sessionURL: String) : Flowable<Any>
+    {
+        return Flowable.create<Any>({ flowableSource->
+            val requestBody = object : RequestBody(){
+
+                override fun contentType(): MediaType = MediaType.parse("video/*")
+                override fun contentLength(): Long = file.length() - offset
+                override fun writeTo(sink: BufferedSink) {
+
+                    val countingSink = Okio.buffer(object: ForwardingSink(sink)
+                    {
+                        var total: Long = 0
+                        override fun write(source: Buffer?, byteCount: Long) {
+                            total += byteCount
+                            flowableSource.onNext(total)
+                            super.write(source, byteCount)
+                        }
+                    })
+
+                    Okio.buffer(Okio.source(file)).use {
+                        it.skip(offset)
+                        while(it.read(countingSink.buffer(), SEGMENT_SIZE) != -1L)
+                        {
+                            countingSink.flush()
+                        }
+                    }
+                }
+            }
+
+            val disposable = youtubeAPI.resumeUpload(sessionURL, "Bearer $authToken", "$offset-${file.length()-1L}/${file.length()}", requestBody)
+                    .doOnNext { res ->
+                        flowableSource.onNext(res)
+                        flowableSource.onComplete()
+                    }
+                    .subscribe()
+
+            flowableSource.setCancellable { disposable.dispose() }
+        }, BackpressureStrategy.LATEST)
     }
 
     override fun onDestroy() {

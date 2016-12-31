@@ -103,6 +103,7 @@ dependencies {
     compile "com.github.akarnokd:rxjava2-interop:0.8.1"
 
     testCompile 'junit:junit:4.12'
+    testCompile "com.squareup.okhttp3:mockwebserver:${okhttpVersion}"
     compile "org.jetbrains.kotlin:kotlin-stdlib:${kotlin_version}"
 }
 

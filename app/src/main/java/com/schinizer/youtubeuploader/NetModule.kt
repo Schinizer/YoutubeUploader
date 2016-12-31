@@ -30,7 +30,7 @@ class NetModule
     internal fun okHttpClient(httpLoggingInterceptor: HttpLoggingInterceptor): OkHttpClient =
             OkHttpClient.Builder()
                 .addInterceptor(httpLoggingInterceptor)
-                    .protocols(arrayListOf(Protocol.HTTP_1_1))
+                .protocols(arrayListOf(Protocol.HTTP_1_1))
                 .build()
 
     @Provides
