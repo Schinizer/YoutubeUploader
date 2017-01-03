@@ -17,7 +17,7 @@ interface YoutubeAPI
             @Header("Authorization") auth_token: String,
             @Header("X-Upload-Content-Length") videoContentLength: Long,
             @Header("X-Upload-Content-Type") mimeType: String,
-            @Body videoResource: VideoResource
+            @Body videoResource: VideoResource?
     ) : Observable<Result<Void>>
 
     @GET("youtube/v3/videoCategories?part=snippet")

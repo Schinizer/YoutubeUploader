@@ -2,36 +2,33 @@ package com.schinizer.youtubeuploader
 
 import android.accounts.Account
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
+import android.support.design.widget.FloatingActionButton
 import android.support.v7.app.AppCompatActivity
+import android.support.v7.widget.DividerItemDecoration
+import android.support.v7.widget.LinearLayoutManager
+import android.support.v7.widget.RecyclerView
 import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
+import butterknife.BindView
+import butterknife.ButterKnife
+import butterknife.OnClick
+import com.afollestad.materialdialogs.MaterialDialog
 import com.google.android.gms.auth.GoogleAuthUtil
 import com.google.android.gms.auth.UserRecoverableAuthException
 import com.google.android.gms.auth.api.Auth
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.auth.api.signin.GoogleSignInResult
 import com.google.android.gms.common.api.GoogleApiClient
-import com.pavlospt.rxfile.RxFile
-import com.schinizer.youtubeuploader.model.VideoResource
-import hu.akarnokd.rxjava.interop.RxJavaInterop
-import io.reactivex.BackpressureStrategy
-import io.reactivex.Flowable
+import com.schinizer.youtubeuploader.model.AuthToken
+import com.schinizer.youtubeuploader.model.UploadTask
 import io.reactivex.Observable
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.observers.DisposableObserver
 import io.reactivex.schedulers.Schedulers
-import okhttp3.MediaType
-import okhttp3.OkHttpClient
-import okhttp3.RequestBody
-import okio.Buffer
-import okio.BufferedSink
-import okio.ForwardingSink
-import okio.Okio
-import java.io.File
+import io.realm.Realm
 import javax.inject.Inject
 
 class MainActivity : AppCompatActivity() {
@@ -40,18 +37,20 @@ class MainActivity : AppCompatActivity() {
     val ACTION_SIGN_IN = 2
     val ACTION_AUTHORIZATION = 3
 
-    val SEGMENT_SIZE = 8L * 1024L
-
     val disposable = CompositeDisposable()
     lateinit var googleApiClient: GoogleApiClient
     lateinit var googleSignInResult: GoogleSignInResult
-    lateinit var authToken: String
+
+    @BindView(R.id.fab)
+    lateinit var fab: FloatingActionButton
+
+    @BindView(R.id.recyclerView)
+    lateinit var recyclerView: RecyclerView
+
+    lateinit var realm: Realm
 
     @Inject
-    lateinit var youtubeAPI: YoutubeAPI
-
-    @Inject
-    lateinit var okhttpClient: OkHttpClient
+    lateinit var authToken: AuthToken
 
     companion object
     {
@@ -61,7 +60,15 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        ButterKnife.bind(this)
         YoutubeUploaderApplication.apiComponent.inject(this)
+
+        realm = Realm.getDefaultInstance()
+
+        recyclerView.layoutManager = LinearLayoutManager(this)
+        recyclerView.adapter = UploadTaskAdapter(this, realm.where(UploadTask::class.java).findAll())
+        recyclerView.setHasFixedSize(true)
+        recyclerView.addItemDecoration(DividerItemDecoration(this, DividerItemDecoration.VERTICAL))
 
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
                 .requestEmail()
@@ -79,21 +86,40 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
+
         menuInflater.inflate(R.menu.actions_main_activity, menu)
-        return true
+        return super.onCreateOptionsMenu(menu)
     }
 
-    override fun onOptionsItemSelected(item: MenuItem?): Boolean = when (item?.itemId)
+    override fun onOptionsItemSelected(item: MenuItem?) = when(item?.itemId)
     {
-        R.id.menu_upload -> {
-            val intent = Intent(Intent.ACTION_OPEN_DOCUMENT) // Grants persisting permissions, API > 19 only
-            intent.addCategory(Intent.CATEGORY_OPENABLE)
-            intent.type = "video/*"
-            //intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
-            startActivityForResult(intent, ACTION_GET_CONTENT)
+        R.id.menu_delete_all->
+        {
+            MaterialDialog.Builder(this)
+                    .content("Delete all tasks? You cannot undo this.")
+                    .positiveText("Delete")
+                    .negativeText("No")
+                    .onPositive { dialog, which ->
+                        realm.executeTransaction {
+                            realm.deleteAll()
+                        }
+                    }
+                    .show()
             true
         }
         else -> super.onOptionsItemSelected(item)
+    }
+
+    @OnClick(R.id.fab)
+    fun launchSelectFileIntent()
+    {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT) // Grants persisting permissions, API > 19 only
+        intent.type = "video/*"
+        intent.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        intent.putExtra(Intent.EXTRA_LOCAL_ONLY, true)
+        //intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+        startActivityForResult(Intent.createChooser(intent, "Select file to upload"), ACTION_GET_CONTENT)
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?)
@@ -106,11 +132,17 @@ class MainActivity : AppCompatActivity() {
                 {
                     RESULT_OK ->
                     {
-                        val uri = data?.data
-                        contentResolver.takePersistableUriPermission(uri, intent.flags and (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION))
-                        upload("Bearer $authToken", uri)
+                        data?.let {
+                            val uri = data.data
+                            contentResolver.takePersistableUriPermission(uri, data.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION)
 
-                        Log.d("activity result", uri.toString())
+                            val uploadActivity = Intent(this, UploadVideoActivity::class.java)
+                            uploadActivity.putExtra("uri", uri.toString())
+                            startActivity(uploadActivity)
+
+                            Log.d(TAG, uri.toString())
+                        }
+
                     }
                 }
             }
@@ -124,12 +156,11 @@ class MainActivity : AppCompatActivity() {
                         val task = getAuthToken(it.account)
 
                         disposable.clear()
-                        disposable.add(task.subscribeWith(object : DisposableObserver<String>() {
+                        disposable.add(task.subscribeWith(object : DisposableObserver<String?>() {
                             override fun onNext(t: String?) {
-                                authToken = t ?: ""
+                                authToken.token = t ?: ""
                                 Log.d("activity result", t)
                             }
-
                             override fun onComplete() = Unit
 
                             override fun onError(e: Throwable?) {
@@ -140,6 +171,15 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             else -> super.onActivityResult(requestCode, resultCode, data)
+        }
+    }
+
+    fun resumeUploads()
+    {
+        realm.where(UploadTask::class.java).findAll().forEach {
+            val intent = Intent(this, UploadService::class.java)
+            intent.putExtra("id", it.id)
+            startService(intent)
         }
     }
 
@@ -165,128 +205,9 @@ class MainActivity : AppCompatActivity() {
                 .observeOn(AndroidSchedulers.mainThread())
     }
 
-    fun upload(authToken: String, uri: Uri?)
-    {
-        val params = VideoResource(VideoResource.Snippet("test", "test", arrayListOf(""), 15), VideoResource.Status("unlisted", false, "youtube"))
-
-        RxJavaInterop.toV2Flowable(RxFile.createFileFromUri(this@MainActivity, uri))
-                .flatMap { file ->
-                    youtubeAPI.startSession(authToken, file.length(), "video/*", params)
-                            .toFlowable(BackpressureStrategy.LATEST)
-                            .flatMap { res ->
-                                uploadVideoTask(file, res.response().headers().get("Location"))
-                            }
-                }
-                .subscribe { data ->
-                    when(data)
-                    {
-                        is Long -> Log.d(TAG, "onNext: $data")
-                    }
-                }
-    }
-
-    fun uploadVideoTask(file: File, sessionURL: String) : Flowable<Any>
-    {
-        return Flowable.create<Any>({ flowableSource ->
-
-            val requestBody = object : RequestBody(){
-
-                override fun contentType(): MediaType = MediaType.parse("video/*")
-                override fun contentLength(): Long = file.length()
-                override fun writeTo(sink: BufferedSink) {
-
-                    val countingSink = Okio.buffer(object: ForwardingSink(sink)
-                    {
-                        var total: Long = 0
-                        override fun write(source: Buffer?, byteCount: Long) {
-                            total += byteCount
-                            flowableSource.onNext(total)
-                            super.write(source, byteCount)
-                        }
-                    })
-
-                    Okio.buffer(Okio.source(file)).use {
-                        while(it.read(countingSink.buffer(), SEGMENT_SIZE) != -1L)
-                        {
-                            countingSink.flush()
-                        }
-                    }
-                }
-            }
-
-            val disposable = youtubeAPI.uploadVideo(sessionURL, "Bearer $authToken", requestBody)
-                    .doOnNext { res ->
-                        flowableSource.onNext(res)
-                        flowableSource.onComplete()
-                    }
-                    .subscribe()
-
-            flowableSource.setCancellable { disposable.dispose() }
-
-        }, BackpressureStrategy.LATEST)
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-    }
-
-    fun resumeUpload(file: File, sessionURL: String) : Flowable<Any>
-    {
-        return youtubeAPI.uploadStatus(sessionURL, "Bearer $authToken", "bytes */${file.length()}")
-                .toFlowable(BackpressureStrategy.LATEST)
-                .flatMap { res ->
-                    when(res.response().code())
-                    {
-                        308 -> {
-                            val rangeHeader = res.response().headers()["Range"] ?: "" // If there is no header, init as empty string
-                            val offset = rangeHeader.substringAfterLast("-", "-1").toLong() + 1L // Range is 0 based index
-                            return@flatMap resumeUploadTask(file, offset, sessionURL)
-                        }
-                        else -> return@flatMap Flowable.empty<Any>()
-                    }
-                }
-    }
-
-    fun resumeUploadTask(file: File, offset: Long, sessionURL: String) : Flowable<Any>
-    {
-        return Flowable.create<Any>({ flowableSource->
-            val requestBody = object : RequestBody(){
-
-                override fun contentType(): MediaType = MediaType.parse("video/*")
-                override fun contentLength(): Long = file.length() - offset
-                override fun writeTo(sink: BufferedSink) {
-
-                    val countingSink = Okio.buffer(object: ForwardingSink(sink)
-                    {
-                        var total: Long = 0
-                        override fun write(source: Buffer?, byteCount: Long) {
-                            total += byteCount
-                            flowableSource.onNext(total)
-                            super.write(source, byteCount)
-                        }
-                    })
-
-                    Okio.buffer(Okio.source(file)).use {
-                        it.skip(offset)
-                        while(it.read(countingSink.buffer(), SEGMENT_SIZE) != -1L)
-                        {
-                            countingSink.flush()
-                        }
-                    }
-                }
-            }
-
-            val disposable = youtubeAPI.resumeUpload(sessionURL, "Bearer $authToken", "$offset-${file.length()-1L}/${file.length()}", requestBody)
-                    .doOnNext { res ->
-                        flowableSource.onNext(res)
-                        flowableSource.onComplete()
-                    }
-                    .subscribe()
-
-            flowableSource.setCancellable { disposable.dispose() }
-        }, BackpressureStrategy.LATEST)
-    }
-
     override fun onDestroy() {
         super.onDestroy()
         disposable.clear()
+        realm.close()
     }
 }

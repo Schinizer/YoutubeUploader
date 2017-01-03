@@ -11,4 +11,7 @@ import javax.inject.Singleton
 interface APIComponent
 {
     fun inject(activity: MainActivity)
+    fun inject(activity: UploadVideoActivity)
+    fun inject(uploadService: UploadService)
+    fun inject(uploadTaskAdapterViewHolder: UploadTaskAdapter.ViewHolder)
 }
