@@ -4,6 +4,7 @@ import android.app.IntentService
 import android.app.NotificationManager
 import android.content.Intent
 import android.net.Uri
+import android.util.Log
 import com.jakewharton.retrofit2.adapter.rxjava2.Result
 import com.pavlospt.rxfile.RxFile
 import com.schinizer.youtubeuploader.model.*
@@ -78,7 +79,7 @@ class UploadService : IntentService("UploadService") {
             }
         }
                 .subscribeOn(Schedulers.io())
-                .subscribe()
+                .subscribe({}, { t -> Log.d(TAG, "OnError", t)})
 
         disposables.put(id ?: -1L, d)
     }
