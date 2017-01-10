@@ -74,12 +74,11 @@ class UploadService : IntentService("UploadService") {
                                 else -> return@flatMap resumeUpload(authTokenHeader, task, realm)
                             }
                         }
-                        .toList()
-                        .blockingGet()
+                        .blockingSubscribe()
             }
         }
                 .subscribeOn(Schedulers.io())
-                .subscribe({}, { t -> Log.d(TAG, "OnError", t)})
+                .subscribe({}, { t -> Log.e(TAG, "OnError", t)})
 
         disposables.put(id ?: -1L, d)
     }
